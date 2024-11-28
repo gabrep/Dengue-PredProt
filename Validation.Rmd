@@ -1,0 +1,79 @@
+---
+title: "Validation"
+output: html_document
+date: "2024-11-28"
+---
+```{r}
+library(oligo)
+library(affycoretools)
+```
+
+```{r}
+my_id <- "GSE51808"
+
+gse.1 <- getGEO(my_id)[[1]]
+pdata.1 <- pData(gse.1)
+
+gsm.1 <- pdata.1 %>% filter(!`status:ch1` == "convalescent")
+gsm.1 <- filter(gsm.1, geo_accession != "GSM1253033") #Amostra removida pelo arrayQualityMetrics
+
+dir.create(paste0("Samples/", my_id))
+for(i in gsm.1$geo_accession){
+  getGEOSuppFiles(i, makeDirectory = F, baseDir = paste0("Samples/", my_id))
+}
+
+gsm.1$celfile <- str_split(gsm.1$supplementary_file, "/") %>% map_chr(tail,1)
+gse.1_celdata <- read.celfiles(paste0("Samples/", my_id,"/", gsm.1$celfile))
+#Loading required package: pd.ht.hg.u133.plus.pm
+gse.1_celdata@annotation
+
+eset <- rma(gse.1_celdata)
+oligo::hist(eset)
+
+#BiocManager::install("hthgu133pluspm.db")
+library(hthgu133pluspm.db)
+eset <- annotateEset(eset, hthgu133pluspm.db,
+                     columns=c("PROBEID", "ENTREZID","ENSEMBL", "SYMBOL", "GENENAME"))
+dim(eset)
+fData(eset) %>% View()
+
+eset <- subset(eset, !is.na(fData(eset)$ENSEMBL))
+eset <- subset(eset, !grepl("pseudogene", fData(eset)$GENENAME))
+eset <- subset(eset, !grepl("LINC", fData(eset)$SYMBOL))
+
+#arrayQualityMetrics::arrayQualityMetrics(eset, force=T)
+#Detectado como outlier: "GSM1253033_1444BP0008_81910_H05.CEL.gz"
+
+```
+#Baixas leituras
+```{r}
+medians <- rowMedians(exprs(eset))
+
+hist(medians, 100, freq=F)
+abline(v=3.5,col='red')
+
+table(gsm.1$`status:ch1`)
+
+threshold <- apply(eset, 1, function(x) {
+  sum(x > 3.5) >= 9
+})
+
+table(threshold)
+eset <- subset(eset, threshold)
+exp.eset <- exprs(eset)
+colnames(exp.eset) <- gsm.1$description
+```
+
+```{r}
+dist <- dist(t(exp.eset))
+hc <- hclust(dist)
+dend <- as.dendrogram(hc)
+plot(dend)
+
+pca.1 <- PCA(t(exp.eset), graph=F)
+fviz_pca_ind(pca.1,
+             mean.point=F,
+             geom.ind = 'point', pointshape=21,
+             fill.ind = gsm.1$`status:ch1`,
+             addEllipses = T, ellypse.type="confidence")
+```
