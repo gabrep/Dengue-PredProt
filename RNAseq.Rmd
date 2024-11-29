@@ -288,7 +288,7 @@ BioVenn::draw.venn(list_x = filter(severe_warning, abs(logFC) >=2, adj.P.Val <= 
                    list_z = filter(warning_control, abs(logFC) >=2, adj.P.Val <= 0.05)$mir, ztitle = "\n\n\n\n\n\nDWS vs DI",
                    title=NULL, subtitle = NULL,
                    x_c = "firebrick1", y_c = "cyan3", z_c = "gold", 
-                   output = "pdf", filename = "Figures-original/Venn-DSvsDWS.pdf", height = 600, width = 600) #-> venn.swc
+                   output = "pdf", filename = "Figures-original/Venn-DSvsDWS.pdf", height = 450, width = 450) #-> venn.swc
 ```
 
 ```{r}
@@ -340,6 +340,7 @@ ggsave("Figures-original/Volcano(FC2).pdf", width = 6, height = 5)
 counts.select <- dge.select$counts %>% as.data.frame() %>% rownames_to_column(var="mir") %>% 
   mutate(mir = sub("_.*", "", .$mir)) %>% 
   filter(mir %in% sw$mir) %>% 
+  filter(mir != "hsa-miR-424-5p") %>% 
   column_to_rownames(., var='mir')
 
 
@@ -436,20 +437,23 @@ targets <- targets %>%
 targets.pred <- filter(targets, fac == "pred")
 targets.prot <- filter(targets, fac == "prot")
 
-length(sw$mir)
 length(unique(targets$mir))
 
-venn.prot_pred <- BioVenn::draw.venn(list_x = targets.pred$hgnc_symbol, xtitle = "\n\nPred",
-                   list_y = targets.prot$hgnc_symbol, ytitle ="\n\n\nProt",
+venn.prot_pred <- BioVenn::draw.venn(list_x = targets.pred$hgnc_symbol, xtitle = "\n\nPredictive miRs \ntargets",
+                   list_y = targets.prot$hgnc_symbol, ytitle ="\n\n\nProtective miRs \ntargets",
                    list_z = NULL,
                    title = NULL, subtitle = NULL,
                    x_c = "violet", y_c = "darkgreen",
-                   output = "pdf", filename = "Figures-original/Venn-Prot-vs-Pred")
-venn.prot_pred
+                   output = "pdf", filename = "Figures-original/Venn-Prot-vs-Pred.pdf", height = 450, width = 450)
+zvenn.prot_pred
 
 exc.prot <- targets.prot %>% filter(hgnc_symbol %in% venn.prot_pred$y_only) %>% mutate(db=NULL) %>% distinct()
 exc.pred <- targets.pred %>% filter(hgnc_symbol %in% venn.prot_pred$x_only) %>% mutate(db=NULL) %>% distinct()
 
+length(unique(exc.prot$hgnc_symbol))
+
+#147 genes unicos no df de protetor
+#676 genes unicos do df de preditivos
 openxlsx::write.xlsx(targets, "Figures-original/All targets 2 bases.xlsx")
 openxlsx::write.xlsx(exc.pred, "Figures-original/Exclusive PRED targets.xlsx")
 openxlsx::write.xlsx(exc.prot, "Figures-original/Exclusive PROT targets.xlsx")
